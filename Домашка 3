@@ -1,0 +1,214 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+// Простейший класс для описания абонента
+public class Abonent
+{
+    public string Number { get; set; }
+    public string Name { get; set; }
+
+    // Для удобства вывода в консоль
+    public override string ToString()
+    {
+        return $"Имя: {Name}, Номер: {Number}";
+    }
+}
+
+// Класс телефонной книги (используем Singleton)
+public class PhoneBook
+{
+    // Поле для хранения наших абонентов
+    private List<Abonent> abonents = new List<Abonent>();
+
+    // Лень-вычисляемое значение (lazy initialization)
+    private static readonly Lazy<PhoneBook> lazyInstance = new Lazy<PhoneBook>(() => new PhoneBook());
+
+    // Прочитаем данные из файла при создании экземпляра
+    private PhoneBook()
+    {
+        ReadDataFromFile();
+    }
+
+    // Единственный доступный способ получить объект телефонной книги
+    public static PhoneBook Instance => lazyInstance.Value;
+
+    // Чтение из файла
+    private void ReadDataFromFile()
+    {
+        try
+        {
+            if (File.Exists("phonebook.txt"))
+            {
+                string[] lines = File.ReadAllLines("phonebook.txt");
+                foreach (string line in lines)
+                {
+                    string[] data = line.Split(',');
+                    if (data.Length >= 2 && !string.IsNullOrEmpty(data[0]) && !string.IsNullOrEmpty(data[1]))
+                    {
+                        abonents.Add(new Abonent { Number = data[0].Trim(), Name = data[1].Trim() });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Ошибка при чтении файла: " + ex.Message);
+        }
+    }
+
+    // Сохранение в файл
+    public void WriteDataToFile()
+    {
+        try
+        {
+            using (StreamWriter sw = new StreamWriter("phonebook.txt"))
+            {
+                foreach (Abonent abonent in abonents)
+                {
+                    sw.WriteLine($"{abonent.Number},{abonent.Name}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Ошибка при сохранении данных: " + ex.Message);
+        }
+    }
+
+    // Добавление абонента (не допускаются повторяющиеся номера телефонов)
+    public void AddAbonent(string number, string name)
+    {
+        if (abonents.Exists(x => x.Number == number))
+        {
+            Console.WriteLine("Такой абонент уже существует!");
+        }
+        else
+        {
+            abonents.Add(new Abonent { Number = number, Name = name });
+            WriteDataToFile(); // После добавления сразу сохраним
+        }
+    }
+
+    // Поиск абонента по номеру телефона
+    public Abonent FindByNumber(string number)
+    {
+        return abonents.Find(x => x.Number == number);
+    }
+
+    // Поиск абонента по имени
+    public List<Abonent> FindByName(string name)
+    {
+        return abonents.FindAll(x => x.Name.ToLower().Contains(name.ToLower()));
+    }
+
+    // Удаление абонента по номеру телефона
+    public void DeleteAbonent(string number)
+    {
+        Abonent abonentToDelete = FindByNumber(number);
+        if (abonentToDelete != null)
+        {
+            abonents.Remove(abonentToDelete);
+            WriteDataToFile(); // После удаления также сохраним
+        }
+        else
+        {
+            Console.WriteLine("Такого абонента не найдено.");
+        }
+    }
+
+    // Показать всех абонентов
+    public void ShowAll()
+    {
+        foreach (Abonent abonent in abonents)
+        {
+            Console.WriteLine(abonent.ToString());
+        }
+    }
+}
+
+// Основная точка входа в программу
+class Program
+{
+    static void Main()
+    {
+        // Используем единственный экземпляр телефонной книги
+        PhoneBook book = PhoneBook.Instance;
+
+        while (true)
+        {
+            Console.Clear();
+            Console.WriteLine("Меню телефонной книги:");
+            Console.WriteLine("1. Добавить абонента");
+            Console.WriteLine("2. Найти абонента по номеру");
+            Console.WriteLine("3. Найти абонента по имени");
+            Console.WriteLine("4. Удалить абонента");
+            Console.WriteLine("5. Просмотреть всех абонентов");
+            Console.WriteLine("6. Выход");
+
+            string input = Console.ReadLine();
+
+            switch (input)
+            {
+                case "1":
+                    Console.Write("Введите номер телефона: ");
+                    string number = Console.ReadLine();
+                    Console.Write("Введите имя абонента: ");
+                    string name = Console.ReadLine();
+                    book.AddAbonent(number, name);
+                    break;
+
+                case "2":
+                    Console.Write("Введите номер телефона для поиска: ");
+                    number = Console.ReadLine();
+                    Abonent result = book.FindByNumber(number);
+                    if (result != null)
+                    {
+                        Console.WriteLine(result.ToString());
+                    }
+                    else
+                    {
+                        Console.WriteLine("Абонент не найден.");
+                    }
+                    break;
+
+                case "3":
+                    Console.Write("Введите имя для поиска: ");
+                    name = Console.ReadLine();
+                    List<Abonent> results = book.FindByName(name);
+                    if (results.Count > 0)
+                    {
+                        foreach (Abonent abonent in results)
+                        {
+                            Console.WriteLine(abonent.ToString());
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Нет совпадений.");
+                    }
+                    break;
+
+                case "4":
+                    Console.Write("Введите номер телефона для удаления: ");
+                    number = Console.ReadLine();
+                    book.DeleteAbonent(number);
+                    break;
+
+                case "5":
+                    book.ShowAll();
+                    break;
+
+                case "6":
+                    return;
+
+                default:
+                    Console.WriteLine("Некорректный ввод. Попробуйте снова.");
+                    break;
+            }
+
+            Console.WriteLine("\nНажмите любую клавишу...");
+            Console.ReadKey(true);
+        }
+    }
+}
